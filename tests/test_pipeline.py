@@ -1,4 +1,10 @@
-from pdfproc.extractor.pipeline import ExtractedTable, ExtractedText, build_chunks
+from pdfproc.extractor.pipeline import (
+    ExtractedTable,
+    ExtractedText,
+    Region,
+    build_chunks,
+    inside_any,
+)
 from pdfproc.schemas import Chunk, IngestRequest, JobCompleted, chunk_topic_adapter
 from pdfproc.messaging import encode
 
@@ -24,6 +30,20 @@ def test_build_chunks_is_stable_across_runs():
     first = [c.chunk_id for c in build_chunks(REQ, [], texts)]
     second = [c.chunk_id for c in build_chunks(REQ, [], texts)]
     assert first == second
+
+
+def test_region_contains_point_on_same_page_only():
+    region = Region(page=1, left=0.3, top=0.28, right=0.66, bottom=0.37)
+    assert region.contains(1, 0.5, 0.33)
+    assert not region.contains(2, 0.5, 0.33)
+    assert not region.contains(1, 0.5, 0.20)
+
+
+def test_inside_any_tolerates_small_margin():
+    regions = [Region(page=1, left=0.3, top=0.3, right=0.6, bottom=0.4)]
+    assert inside_any(regions, 1, 0.603, 0.35)
+    assert not inside_any(regions, 1, 0.62, 0.35)
+    assert not inside_any([], 1, 0.5, 0.35)
 
 
 def test_chunk_topic_messages_roundtrip_through_discriminator():

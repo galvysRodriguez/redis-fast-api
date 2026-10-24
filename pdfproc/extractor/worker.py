@@ -36,10 +36,14 @@ async def process_report(
     started = time.perf_counter()
     # Docling y Unstructured son CPU-bound y bloqueantes: van a hilos para no
     # congelar el event loop (heartbeats de Kafka) y corren en paralelo.
-    tables, texts = await asyncio.gather(
+    tables, elements = await asyncio.gather(
         asyncio.to_thread(tables_ex.extract, req.path),
-        asyncio.to_thread(text_ex.extract, req.path),
+        asyncio.to_thread(text_ex.partition, req.path),
     )
+    # El texto que cae dentro de una tabla de Docling ya está en el chunk de
+    # tabla; se descarta para no indexarlo dos veces.
+    regions = [region for table in tables for region in table.regions]
+    texts = await asyncio.to_thread(text_ex.chunk, elements, regions)
     elapsed = time.perf_counter() - started
     chunks = build_chunks(req, tables, texts)
 
@@ -92,9 +96,11 @@ async def run() -> None:
     configure_logging(settings.log_level)
 
     # Imports pesados (torch, modelos) solo en el proceso del extractor.
-    from pdfproc.extractor.docling_tables import DoclingTableExtractor
+    from pdfproc.extractor.docling_tables import DoclingTableExtractor, ensure_models
     from pdfproc.extractor.unstructured_text import UnstructuredTextExtractor
 
+    if settings.docling_artifacts_path:
+        await asyncio.to_thread(ensure_models, settings.docling_artifacts_path)
     log.info("Cargando modelos de Docling...")
     tables_ex = DoclingTableExtractor(
         do_ocr=settings.docling_do_ocr, artifacts_path=settings.docling_artifacts_path

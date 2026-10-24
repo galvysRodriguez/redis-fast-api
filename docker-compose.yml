@@ -88,7 +88,7 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
       <<: *app-env
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
@@ -108,8 +108,10 @@ services:
       DOCLING_ARTIFACTS_PATH: /models/docling
       CHUNK_MAX_CHARS: ${CHUNK_MAX_CHARS:-1500}
       OMP_NUM_THREADS: ${EXTRACTOR_THREADS:-4}
+      UNSTRUCTURED_DISABLE_NOTICE: "1"
     volumes:
       - uploads:/data/uploads:ro
+      - docling-models:/models
     depends_on: *app-deps
     restart: unless-stopped
     stop_grace_period: 5m  # deja terminar el PDF en curso antes de matar el contenedor
@@ -134,3 +136,4 @@ volumes:
   kafka-data:
   es-data:
   uploads:
+  docling-models:

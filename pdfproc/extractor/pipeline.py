@@ -7,12 +7,39 @@ from pdfproc.schemas import Chunk, IngestRequest, TablePayload
 
 
 @dataclass(frozen=True)
+class Region:
+    """Caja de una tabla en fracciones de página (0..1), origen arriba-izquierda.
+
+    Normalizada para poder compararla con coordenadas de Unstructured, que
+    usa puntos PDF en `fast` y píxeles en `hi_res`.
+    """
+
+    page: int
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+    def contains(self, page: int, x: float, y: float, margin: float = 0.005) -> bool:
+        return (
+            page == self.page
+            and self.left - margin <= x <= self.right + margin
+            and self.top - margin <= y <= self.bottom + margin
+        )
+
+
+def inside_any(regions: list[Region], page: int, x: float, y: float) -> bool:
+    return any(region.contains(page, x, y) for region in regions)
+
+
+@dataclass(frozen=True)
 class ExtractedTable:
     columns: list[str]
     rows: list[list[str]]
     markdown: str
     caption: str | None = None
     pages: list[int] = field(default_factory=list)
+    regions: list[Region] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -27,7 +54,9 @@ class TableExtractor(Protocol):
 
 
 class TextExtractor(Protocol):
-    def extract(self, path: str) -> list[ExtractedText]: ...
+    def partition(self, path: str) -> list: ...
+
+    def chunk(self, elements: list, exclude: list[Region]) -> list[ExtractedText]: ...
 
 
 def build_chunks(

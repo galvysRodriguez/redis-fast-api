@@ -66,14 +66,21 @@ Los contratos están en `pdfproc/schemas.py` (Pydantic, unión discriminada por 
 Requisitos: Docker + Docker Compose. ~4 GB de RAM libres (Elasticsearch 1 GB, Docling ~2 GB).
 
 ```bash
-cp .env.example .env      # opcional
-make up                   # la 1ª vez construye el extractor (torch CPU + modelos Docling)
+cp .env.example .env      # opcional (API_PORT, réplicas, tamaños de batch…)
+make up                   # la 1ª vez construye el extractor (torch CPU + Docling + spaCy)
 make ps
 ```
 
+- El primer arranque del extractor descarga los modelos de Docling (layout + TableFormer) al
+  volumen `docling-models`, con reintentos. Los siguientes arranques los reutilizan.
+- El build usa caché de pip (BuildKit) y reintentos: si la red corta una descarga, volver a
+  lanzar `make up` continúa desde lo ya descargado.
+- Con Podman rootless: `systemctl --user start podman.socket` y
+  `export DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock`.
+
 | URL                         | Qué |
 |-----------------------------|-----|
-| http://localhost:8000/docs  | Swagger de la API |
+| http://localhost:8000/docs  | Swagger de la API (puerto configurable con `API_PORT`) |
 | http://localhost:8080       | Kafka UI (topics, consumer lag) |
 | http://localhost:9200       | Elasticsearch |
 | `localhost:29092`           | Kafka desde el host |
@@ -94,6 +101,10 @@ curl "http://localhost:8000/search?q=ingresos%20operativos&kind=table"
 ```
 
 Estados del job: `queued` → `processing` → `completed` | `completed_with_errors` | `failed`.
+
+Ejemplo real (PDF de 2 páginas con 2 tablas): `extraction_seconds≈19`, 3 chunks de texto +
+2 de tabla. El texto que Unstructured detecta dentro de las cajas de las tablas de Docling se
+descarta (la estrategia `fast` no clasifica tablas y si no las celdas se indexarían dos veces).
 
 Cada chunk de tabla incluye `table.columns`, `table.rows`, `table.markdown` y `table.caption`;
 el campo `text` (caption + markdown) es el que se indexa para búsqueda.
