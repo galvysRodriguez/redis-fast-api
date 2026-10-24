@@ -62,7 +62,10 @@ async def process_report(
     await producer.send_and_wait(topic, encode(done), key=req.job_id)
     log.info(
         "Job %s extraído en %.1fs: %d texto, %d tablas",
-        req.job_id, elapsed, len(texts), len(tables),
+        req.job_id,
+        elapsed,
+        len(texts),
+        len(tables),
     )
 
 
@@ -74,7 +77,7 @@ async def handle_record(
     settings: Settings,
 ) -> None:
     key = record.key.decode() if record.key else None
-    dlq = dict(stage="extractor", source_topic=record.topic, key=key, payload=record.value)
+    dlq = {"stage": "extractor", "source_topic": record.topic, "key": key, "payload": record.value}
     try:
         req = IngestRequest.model_validate_json(record.value)
     except ValidationError as exc:

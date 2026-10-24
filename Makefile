@@ -1,4 +1,6 @@
-.PHONY: up down logs ps test venv submit dlq scale
+.PHONY: up down logs ps test lint venv submit sample dlq scale
+
+API_URL ?= http://localhost:$(or $(API_PORT),8001)
 
 up:
 	docker compose up -d --build
@@ -18,9 +20,17 @@ venv:
 test:
 	.venv/bin/python -m pytest -q
 
-# make submit FILE=reporte.pdf
+lint:
+	.venv/bin/ruff check pdfproc tests scripts
+	.venv/bin/ruff format --check pdfproc tests scripts
+
+# make submit FILE=reporte.pdf  (por defecto, el PDF de ejemplo)
 submit:
-	scripts/submit.sh $(FILE)
+	scripts/submit.sh $(or $(FILE),examples/informe_q3.pdf) $(API_URL)
+
+# Regenera examples/informe_q3.pdf
+sample:
+	.venv/bin/python scripts/make_sample_pdf.py
 
 # Ver mensajes en la dead-letter queue
 dlq:

@@ -89,7 +89,7 @@ def build_chunks(
                 filename=req.filename,
                 kind="table",
                 seq=seq,
-                text="\n\n".join(part for part in (item.caption, item.markdown) if part),
+                text=_table_text(item),
                 page_numbers=item.pages,
                 element_types=["Table"],
                 table=TablePayload(
@@ -101,3 +101,11 @@ def build_chunks(
             )
         )
     return chunks
+
+
+def _table_text(table: ExtractedTable) -> str:
+    """Texto indexable de la tabla: caption + markdown, sin repetir el caption
+    (según la versión, Docling ya lo incluye en el markdown)."""
+    if table.caption and table.caption not in table.markdown:
+        return f"{table.caption}\n\n{table.markdown}"
+    return table.markdown

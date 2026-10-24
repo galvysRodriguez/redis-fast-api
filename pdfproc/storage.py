@@ -44,7 +44,9 @@ JOBS_MAPPING = {
 }
 
 
-async def connect_es(settings: Settings, attempts: int = 60, delay: float = 2.0) -> AsyncElasticsearch:
+async def connect_es(
+    settings: Settings, attempts: int = 60, delay: float = 2.0
+) -> AsyncElasticsearch:
     es = AsyncElasticsearch(settings.elasticsearch_url, request_timeout=30)
     for attempt in range(1, attempts + 1):
         if await es.ping():

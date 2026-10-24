@@ -5,8 +5,8 @@ from pdfproc.extractor.pipeline import (
     build_chunks,
     inside_any,
 )
-from pdfproc.schemas import Chunk, IngestRequest, JobCompleted, chunk_topic_adapter
 from pdfproc.messaging import encode
+from pdfproc.schemas import Chunk, IngestRequest, JobCompleted, chunk_topic_adapter
 
 REQ = IngestRequest(job_id="job1", filename="q3.pdf", path="/data/uploads/job1.pdf")
 
@@ -17,12 +17,22 @@ def test_build_chunks_assigns_deterministic_ids_and_kinds():
 
     chunks = build_chunks(REQ, tables, texts)
 
-    assert [c.chunk_id for c in chunks] == ["job1-text-00000", "job1-text-00001", "job1-table-00000"]
+    assert [c.chunk_id for c in chunks] == [
+        "job1-text-00000",
+        "job1-text-00001",
+        "job1-table-00000",
+    ]
     table = chunks[-1]
     assert table.kind == "table"
     assert table.text == "Ventas\n\n| A | B |"
     assert table.table.rows == [["1", "2"]]
     assert table.page_numbers == [3]
+
+
+def test_table_text_does_not_repeat_caption_already_in_markdown():
+    markdown = "Ventas\n\n| A | B |"
+    tables = [ExtractedTable(["A", "B"], [["1", "2"]], markdown, caption="Ventas")]
+    assert build_chunks(REQ, tables, [])[0].text == markdown
 
 
 def test_build_chunks_is_stable_across_runs():
@@ -48,7 +58,9 @@ def test_inside_any_tolerates_small_margin():
 
 def test_chunk_topic_messages_roundtrip_through_discriminator():
     chunk = build_chunks(REQ, [], [ExtractedText("hola")])[0]
-    done = JobCompleted(job_id="job1", total_chunks=1, text_chunks=1, table_chunks=0, extraction_seconds=0.1)
+    done = JobCompleted(
+        job_id="job1", total_chunks=1, text_chunks=1, table_chunks=0, extraction_seconds=0.1
+    )
 
     assert isinstance(chunk_topic_adapter.validate_json(encode(chunk)), Chunk)
     assert isinstance(chunk_topic_adapter.validate_json(encode(done)), JobCompleted)

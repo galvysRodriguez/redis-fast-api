@@ -32,7 +32,8 @@ class UnstructuredTextExtractor:
     def partition(self, path: str) -> list:
         elements = partition_pdf(filename=path, strategy=self._strategy, languages=self._languages)
         return [
-            el for el in elements
+            el
+            for el in elements
             if el.category not in SKIPPED_CATEGORIES and (el.text or "").strip()
         ]
 
@@ -63,7 +64,9 @@ class UnstructuredTextExtractor:
         ]
         log.info(
             "Unstructured: %d elementos (%d dentro de tablas) -> %d chunks",
-            len(elements), len(elements) - len(kept), len(results),
+            len(elements),
+            len(elements) - len(kept),
+            len(results),
         )
         return results
 

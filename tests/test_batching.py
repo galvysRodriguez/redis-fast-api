@@ -53,8 +53,10 @@ def test_collect_batch_stops_early_when_stop_is_set():
 def test_build_bulk_operations_pairs_action_and_source():
     ops = build_bulk_operations("idx", {"a": {"x": 1}, "b": {"x": 2}})
     assert ops == [
-        {"index": {"_index": "idx", "_id": "a"}}, {"x": 1},
-        {"index": {"_index": "idx", "_id": "b"}}, {"x": 2},
+        {"index": {"_index": "idx", "_id": "a"}},
+        {"x": 1},
+        {"index": {"_index": "idx", "_id": "b"}},
+        {"x": 2},
     ]
 
 
@@ -81,5 +83,7 @@ def test_classify_bulk_response_splits_retryable_and_permanent():
 
 
 def test_classify_bulk_response_without_errors_is_empty():
-    outcome = classify_bulk_response({"errors": False, "items": [{"index": {"_id": "a", "status": 201}}]})
+    outcome = classify_bulk_response(
+        {"errors": False, "items": [{"index": {"_id": "a", "status": 201}}]}
+    )
     assert not outcome.retryable and not outcome.permanent

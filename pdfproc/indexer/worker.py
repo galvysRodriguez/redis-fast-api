@@ -65,9 +65,7 @@ async def bulk_index(
             return permanent
         pending = {doc_id: pending[doc_id] for doc_id in outcome.retryable}
         delay = min(0.5 * 2**attempt, 30)
-        log.warning(
-            "Bulk: %d docs reintentables, nuevo intento en %.1fs", len(pending), delay
-        )
+        log.warning("Bulk: %d docs reintentables, nuevo intento en %.1fs", len(pending), delay)
         await asyncio.sleep(delay)
     raise IndexingUnavailable(f"{len(pending)} documentos sin indexar tras reintentos")
 
@@ -78,19 +76,26 @@ async def apply_job_event(
     match event:
         case JobStarted():
             await update_job(
-                es, settings, event.job_id,
-                status="processing", started_at=event.started_at.isoformat(),
+                es,
+                settings,
+                event.job_id,
+                status="processing",
+                started_at=event.started_at.isoformat(),
             )
         case JobCompleted():
             # Los chunks del job van antes en la misma partición, así que ya
             # están indexados; se cuentan para detectar pérdidas (DLQ).
             await es.indices.refresh(index=settings.index_chunks)
             indexed = (
-                await es.count(index=settings.index_chunks, query={"term": {"job_id": event.job_id}})
+                await es.count(
+                    index=settings.index_chunks, query={"term": {"job_id": event.job_id}}
+                )
             )["count"]
             status = "completed" if indexed >= event.total_chunks else "completed_with_errors"
             await update_job(
-                es, settings, event.job_id,
+                es,
+                settings,
+                event.job_id,
                 status=status,
                 total_chunks=event.total_chunks,
                 text_chunks=event.text_chunks,
@@ -102,8 +107,12 @@ async def apply_job_event(
             log.info("Job %s %s (%d/%d chunks)", event.job_id, status, indexed, event.total_chunks)
         case JobFailed():
             await update_job(
-                es, settings, event.job_id,
-                status="failed", error=event.error, finished_at=event.failed_at.isoformat(),
+                es,
+                settings,
+                event.job_id,
+                status="failed",
+                error=event.error,
+                finished_at=event.failed_at.isoformat(),
             )
 
 
@@ -124,9 +133,13 @@ async def handle_batch(
             message = chunk_topic_adapter.validate_json(record.value)
         except ValidationError as exc:
             await send_to_dlq(
-                producer, settings, stage="indexer", source_topic=record.topic,
+                producer,
+                settings,
+                stage="indexer",
+                source_topic=record.topic,
                 key=record.key.decode() if record.key else None,
-                payload=record.value, error=f"mensaje inválido: {exc}",
+                payload=record.value,
+                error=f"mensaje inválido: {exc}",
             )
             continue
         if isinstance(message, Chunk):
@@ -142,9 +155,13 @@ async def handle_batch(
         for chunk_id, error in failures.items():
             record = raw_chunks[chunk_id]
             await send_to_dlq(
-                producer, settings, stage="indexer", source_topic=record.topic,
+                producer,
+                settings,
+                stage="indexer",
+                source_topic=record.topic,
                 key=record.key.decode() if record.key else None,
-                payload=record.value, error=error,
+                payload=record.value,
+                error=error,
             )
 
     # 2) ...y después los eventos de estado, en orden de llegada.
@@ -154,7 +171,11 @@ async def handle_batch(
     kinds = Counter(doc["kind"] for doc in docs.values())
     log.info(
         "Lote: %d registros -> %d chunks (%d texto, %d tablas), %d eventos en %.0f ms",
-        len(records), len(docs), kinds["text"], kinds["table"], len(events),
+        len(records),
+        len(docs),
+        kinds["text"],
+        kinds["table"],
+        len(events),
         (time.perf_counter() - started) * 1000,
     )
 
@@ -172,7 +193,8 @@ async def run() -> None:
     )
     log.info(
         "Indexador listo (batch=%d registros / %d ms)",
-        settings.batch_max_records, settings.batch_max_wait_ms,
+        settings.batch_max_records,
+        settings.batch_max_wait_ms,
     )
     try:
         while not stop.is_set():

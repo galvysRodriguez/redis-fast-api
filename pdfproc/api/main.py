@@ -4,7 +4,7 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import anyio
 from elasticsearch import NotFoundError
@@ -72,7 +72,7 @@ async def _save_upload(file: UploadFile, dest: Path, max_bytes: int) -> int:
 
 
 @app.post("/reports", status_code=202, response_model=ReportAccepted)
-async def submit_report(request: Request, file: UploadFile = File(...)) -> ReportAccepted:
+async def submit_report(request: Request, file: Annotated[UploadFile, File()]) -> ReportAccepted:
     settings = request.app.state.settings
     es = request.app.state.es
     producer = request.app.state.producer
@@ -84,8 +84,12 @@ async def submit_report(request: Request, file: UploadFile = File(...)) -> Repor
 
     ingest = IngestRequest(job_id=job_id, filename=filename, path=str(dest))
     await update_job(
-        es, settings, job_id,
-        filename=filename, status="queued", submitted_at=ingest.submitted_at.isoformat(),
+        es,
+        settings,
+        job_id,
+        filename=filename,
+        status="queued",
+        submitted_at=ingest.submitted_at.isoformat(),
     )
     try:
         await producer.send_and_wait(settings.topic_ingest, encode(ingest), key=job_id)
