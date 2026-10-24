@@ -1,0 +1,2 @@
+-r base.txt
+elasticsearch[async]>=8.15,<9
